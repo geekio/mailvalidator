@@ -1,5 +1,4 @@
-# mailvalidator
-command line app that verifies email(s) address existence
+Command line app that verifies email(s) address existence
 
 As simple as that:
 ./mailvalidator -h
