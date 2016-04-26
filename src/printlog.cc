@@ -1,4 +1,3 @@
-#include "printlog.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,9 +9,7 @@
 #include <errno.h>
 #include <libgen.h>
 #include <pthread.h>
-
-#define DIR_LOGS "logs"
-#define FILE_LOG_POSTFIX ".log"
+#include "printlog.h"
 
 char dir_path_log[FILENAME_MAX];
 char file_path_log[FILENAME_MAX];

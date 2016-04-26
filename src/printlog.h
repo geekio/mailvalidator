@@ -2,6 +2,9 @@
 #ifndef PRINTLOG_H
 #define PRINTLOG_H
 
+#define DIR_LOGS "logs"
+#define FILE_LOG_POSTFIX ".log"
+
 typedef enum _LogLevel
 {
     //llDebug,

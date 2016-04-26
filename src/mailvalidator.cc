@@ -1,9 +1,3 @@
-#include "mailvalidator.h"
-#include "printlog.h"
-#include "mxlookup.h"
-#include "sckt.h"
-#include "smtpclient.h"
-#include "textsearch.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>
@@ -17,6 +11,12 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <regex.h>
+#include "mailvalidator.h"
+#include "printlog.h"
+#include "mxlookup.h"
+#include "sckt.h"
+#include "smtpclient.h"
+#include "textsearch.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW

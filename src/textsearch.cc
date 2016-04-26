@@ -1,14 +1,10 @@
-#include "printlog.h"
 #include <limits.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "textsearch.h"
+#include "printlog.h"
 
-# define NO_OF_CHARS 256
-# define BLOCK_SIZE 256
-# define BLOCK_COUNT 1
-
- 
 // A utility function to get maximum of two integers
 int max(int a, int b)
 {
