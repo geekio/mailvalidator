@@ -1,4 +1,3 @@
-#pragma once
 #ifndef PRINTLOG_H
 #define PRINTLOG_H
 

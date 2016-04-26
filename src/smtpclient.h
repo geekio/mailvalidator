@@ -1,4 +1,3 @@
-#pragma once
 #ifndef SMTPCLIENT_H
 #define SMTPCLIENT_H
 

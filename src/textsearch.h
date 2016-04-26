@@ -1,4 +1,3 @@
-#pragma once
 #ifndef TEXTSEARCH_H
 #define TEXTSEARCH_H
 

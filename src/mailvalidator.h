@@ -1,4 +1,3 @@
-#pragma once
 #ifndef MAILVALIDATOR_H
 #define MAILVALIDATOR_H
 

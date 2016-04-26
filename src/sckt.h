@@ -1,4 +1,3 @@
-#pragma once
 #ifndef SCKT_H
 #define SCKT_H
 

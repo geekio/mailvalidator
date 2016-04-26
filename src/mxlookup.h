@@ -1,4 +1,3 @@
-#pragma once
 #ifndef MXLOOKUP_H
 #define MXLOOKUP_H
 
