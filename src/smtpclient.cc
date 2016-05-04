@@ -18,6 +18,7 @@ bool bShutdownT = false;
 char szEhloCommand[256];
 char szMailFromCommand[256];
 char szRcptToCommand[256];
+char const* szQuitCommand = "QUIT\r\n";
 char szRemoteAddress[256];
 int kq_client = -1;
 SOCKET ClientSocket = -1;
@@ -209,6 +210,7 @@ void* ThreadSMTPClient(void *arg)
            			else
            			if (n_progress == STATE_RCPTTOSENT)
 				{
+					PutRequest((char*)szQuitCommand);
                 			n_progress |= STATE_SUCCESSFUL;
 					bShutdownT = true;
 				}
