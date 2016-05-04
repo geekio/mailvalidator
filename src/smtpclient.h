@@ -10,6 +10,13 @@
 #define STATE_RCPTTOSENT 7
 #define STATE_SUCCESSFUL 15 
 
-int SmtpCheckRcpt(char*, char*, char*, char*, int&);
+struct SMTP_AUTH_SET
+{
+  char ptr_domain[256];
+  char mail_from[256];
+  int sock_async_timeout;
+};
+
+int SmtpCheckRcpt(SMTP_AUTH_SET*, char*, char*);
 
 #endif

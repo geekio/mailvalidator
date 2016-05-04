@@ -247,18 +247,16 @@ void* ThreadSMTPClient(void *arg)
     pthread_exit(NULL);
 }
 
-int SmtpCheckRcpt(char* mailfrom, char* domain, char* rcptto, char* ip, int& sock_timeout) 
+int SmtpCheckRcpt(SMTP_AUTH_SET* smtp_auth_set, char* rcptto, char* ip) 
 {
-
-
     // formt SMTP commands 
-    sprintf(szEhloCommand, "EHLO %s\r\n", domain);
-    sprintf(szMailFromCommand, "MAIL FROM:<%s>\r\n", mailfrom);
+    sprintf(szEhloCommand, "EHLO %s\r\n", smtp_auth_set->ptr_domain);
+    sprintf(szMailFromCommand, "MAIL FROM:<%s>\r\n", smtp_auth_set->mail_from);
     sprintf(szRcptToCommand, "RCPT TO:<%s>\r\n", rcptto);
     sprintf(szRemoteAddress, "%s", ip);
-    SOCK_TIMEOUT = sock_timeout;
-    // start thread
+    SOCK_TIMEOUT = smtp_auth_set->sock_async_timeout;
 
+    // start thread
     bShutdownT = bShutdown;
 
     pthread_t ht;

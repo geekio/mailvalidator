@@ -26,15 +26,15 @@ static char THIS_FILE[] = __FILE__;
 
 typedef enum _ErrCode
 {
-    errTerminated = 13,
-    errSuccess = 250,
-    errInvalidFormat = 5000,
-    errCantResolve = 5001,
-    errMXLookup = 5002,
-    errMXLimitExceeded = 5003,
-    errDomainBlacklisted = 5004,
-    errIdleTimeExceeded = 5005,
-    errGetHostByName = 5006
+  errTerminated = 13,
+  errSuccess = 250,
+  errInvalidFormat = 5000,
+  errCantResolve = 5001,
+  errMXLookup = 5002,
+  errMXLimitExceeded = 5003,
+  errDomainBlacklisted = 5004,
+  errIdleTimeExceeded = 5005,
+  errGetHostByName = 5006
 } ErrorCode;
 
 bool bShutdown = false;
@@ -43,15 +43,15 @@ bool bFileLog = false;
 bool bAquery = false;
 bool bNameServer = false;
 
-char szNameServer[16]="8.8.8.8";
-char szPtrDomain[256]="mail.educause.edu";
-char szMailFrom[256] = "admin@educause.edu";
+// Global settings for SMTP negotiation  
+SMTP_AUTH_SET SmtpAuthSet = {"mail.educause.edu", "admin@educause.edu", 15};
+
+char szNameServer[16] = "8.8.8.8";
 char szRcptTo[256] = "";
 char szFileName[1024] = "";
 char szXFileName[1024] = ""; 
 
 int nSleep = 100;
-int nSockAsyncTimeout = 15;
 int nMXLimit = 3;
 int nFileSize = 500;
 
@@ -152,7 +152,7 @@ int ParseArguments(int argc, char *argv[])
     // check count
     if (argc < 2)
     {
-        printf("Usage: mailvalidator [@server] [-h] [-l] [-a] [-flist filename] [-fsize filesize] [-xlist filename] [-d sleep msec.]\n\t[-t socket timeout sec.] [-mx mail servers limit] [-p ptr record] [-s mailfrom] [rcptto]\r\n");
+        printf("Usage: mailvalidator [@server] [-a] [-h] [-l] [-flist filename] [-fsize filesize] [-xlist filename] [-d sleep msec.]\n\t[-t socket timeout sec.] [-mx mail servers limit] [-p ptr record] [-s mailfrom] [rcptto]\r\n");
         printlog(llFatal, "ParseArguments", "1 argument expected, mailvalidator [rcpt to]");
         return -1;
     }
@@ -175,7 +175,7 @@ int ParseArguments(int argc, char *argv[])
         }
         else if (memcmp(argv[i], "-t", 3) == 0)
         {
-            nSockAsyncTimeout = atoi(argv[i] + 3); i++;
+            SmtpAuthSet.sock_async_timeout = atoi(argv[i] + 3); i++;
         }
         else if (memcmp(argv[i], "-mx", 4) == 0)
         {
@@ -183,11 +183,11 @@ int ParseArguments(int argc, char *argv[])
         }
 	else if (memcmp(argv[i], "-s", 3) == 0)
         {
-	    strcpy(szMailFrom, argv[i] + 3); i++;
+	    strcpy(SmtpAuthSet.mail_from, argv[i] + 3); i++;
 	}
         else if (memcmp(argv[i], "-p", 3) == 0)
         {
-            strcpy(szPtrDomain, argv[i] + 3); i++;
+            strcpy(SmtpAuthSet.ptr_domain, argv[i] + 3); i++;
         }    
         else if (memcmp(argv[i], "-a", 3) == 0)
         {
@@ -215,7 +215,7 @@ int ParseArguments(int argc, char *argv[])
 	    printf("\tEmail(es) for validation can be provided in the form of a single argument or a plain-text file containing list of emails.\r\n");
             printf("\tNameservers from etc/resolv.conf are used or 8.8.8.8 by default.\r\n");
 	    printf("\r\nUsage:\r\n");
-	    printf("\tmailvalidator [@server] [-h] [-l] [-a] [-f filename] [-fsize filesize] [-xlist filename] [-d delay msec.]\n\t[-t socket timeout sec.] [-mx mail servers number] [-p ptr record] [-s mailfrom] [rcptto]\r\n");
+	    printf("\tmailvalidator [@server] [-a] [-h] [-l] [-f filename] [-fsize filesize] [-xlist filename] [-d delay msec.]\n\t[-t socket timeout sec.] [-mx mail servers number] [-p ptr record] [-s mailfrom] [rcptto]\r\n");
 	    printf("\r\nOptions:\r\n");
 	    printf("\t-h\r\n");
 	    printf("\t\tOutput this help screen.\r\n");
@@ -299,7 +299,6 @@ int ParseEmail(char* email)
 	}
    }
 
-
    // if check A record option given
    char mxIP[16];
    if (bAquery)
@@ -339,7 +338,7 @@ int ParseEmail(char* email)
         } 
 	printlog(llInfo, "ParseEmail", "email=%s, FQDN=%s MX%d=%s, IP=%s", email, szDomain, i, mxBuf.record[i], mxIP);
 
-	retCode=SmtpCheckRcpt(&szMailFrom[0], &szPtrDomain[0], email, mxIP, nSockAsyncTimeout);
+	retCode=SmtpCheckRcpt(&SmtpAuthSet, email, mxIP);
 
  	bool bCompleted = ((retCode == 250)  || (retCode == 251) || (retCode == 450) || (retCode == 451) ||  (retCode == 550) || (retCode == 553) || (retCode == 5005)) ? true : false;	
  	if (bCompleted)
@@ -403,18 +402,18 @@ int main(int argc, char *argv[])
 
 
 	// parse arguments
-        if(ParseArguments(argc, argv) != 0)
+	if(ParseArguments(argc, argv) != 0)
 	   return -1;
 
         // printf(_PROGNFO_", logging %s...\n", (bFileLog == true) ? "enabled" :  "disabled");
         initlog((bool*)bFileLog, "main() "_PROGNFO_, argv[0]);
 	printlog(llInfo, "main()", "Initialization ...");
         // log input values
-        printlog(llInfo, "ParseArguments", "program arguments:: FileName=%s; MAIL FROM=%s; RCPT TO=%s", szFileName, szMailFrom, szRcptTo);
+        printlog(llInfo, "ParseArguments", "program arguments: FileName=%s; MAIL_FROM=%s; RCPT_TO=%s", szFileName, SmtpAuthSet.mail_from, szRcptTo);
         // show input values
         // printf("FILENAME: %s\r\n", szFileName);
-	// printf("PTR RECORD: %s\r\n", szPtrDomain);
-        // printf("MAIL FROM: %s\r\n", szMailFrom);
+	// printf("PTR RECORD: %s\r\n", SmtpAuthSet.ptr_domain);
+        // printf("MAIL FROM: %s\r\n", SmtpAuthSet.mail_from);
         // printf("RCPT TO: %s\r\n", szRcptTo);
 
         // set signals handler
