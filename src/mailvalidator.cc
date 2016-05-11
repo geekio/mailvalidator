@@ -387,11 +387,61 @@ void PrintErrCode(char* rcptto, int errcode)
 	case errGetHostByName:
 	   strcpy(str, "_ERR: GetHostByName - no A records returned");
            break;
+        case 252:
+           strcpy(str, "_ERR: Cannot VRFY user, but will accept message and attempt delivery");
+           break;
+	case 421:
+           strcpy(str, "_ERR: Service not available, closing transmission channel");
+           break;
+	case 450:
+           strcpy(str, "_ERR: Requested mail action not taken: mailbox unavailable");
+           break;
+	case 451:
+           strcpy(str, "_ERR: Requested action aborted: local error in processing");
+           break;
+	case 452:
+           strcpy(str, "_ERR: Requested action not taken: insufficient system storage");
+           break;
+	case 500:
+           strcpy(str, "_ERR: Syntax error, command unrecognised");
+           break;
+	case 501:
+           strcpy(str, "_ERR: Syntax error in parameters or arguments");
+           break;
+	case 502:
+           strcpy(str, "_ERR: Command not implemented");
+           break;
+	case 503:
+           strcpy(str, "_ERR: Bad sequence of commands");
+           break;
+	case 504:
+           strcpy(str, "_ERR: Command parameter not implemented");
+           break;
+	case 521:
+           strcpy(str, "_ERR: <domain> does not accept mail (see rfc1846)");
+           break;
+	case 530:
+           strcpy(str, "_ERR: Access denied");
+           break;
+	case 550:
+           strcpy(str, "_ERR: Requested action not taken: mailbox unavailable");
+           break;
+	case 551:
+           strcpy(str, "_ERR: User not local; please try <forward-path>");
+           break;
+	case 552:
+           strcpy(str, "_ERR: Requested mail action aborted: exceeded storage allocation");
+           break;
+	case 553:
+           strcpy(str, "_ERR: Requested action not taken: mailbox name not allowed");
+           break;
+	case 554:
+           strcpy(str, "_ERR: Transaction failed");
+           break;
 	default:
 	   strcpy(str, "_ERR: Unrecognized error code");
 	   break;
     }
-    
     printlog(llInfo, "PrintErrorCode", "SMTP reply code=%d for email address=%s", errcode, rcptto);
     printf("%s\t%d\t%s\r\n", rcptto, errcode, str);
 }
