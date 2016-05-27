@@ -34,7 +34,8 @@ typedef enum _ErrCode
   errMXLimitExceeded = 5003,
   errDomainBlacklisted = 5004,
   errIdleTimeExceeded = 5005,
-  errGetHostByName = 5006
+  errGetHostByName = 5006,
+  errCatchAllDetected = 5007
 } ErrorCode;
 
 bool bShutdown = false;
@@ -44,7 +45,7 @@ bool bAquery = false;
 bool bNameServer = false;
 
 // Global settings for SMTP negotiation  
-SMTP_AUTH_SET SmtpAuthSet = {"mail.educause.edu", "admin@educause.edu", 15};
+SMTP_SESSION_SET SmtpSessionSet = {"mail.educause.edu", "admin@educause.edu", "", 15, 0};
 
 char szNameServer[16] = "8.8.8.8";
 char szRcptTo[256] = "";
@@ -52,7 +53,7 @@ char szFileName[1024] = "";
 char szXFileName[1024] = ""; 
 
 int nSleep = 100;
-int nMXLimit = 3;
+int nMXLimit = 1;
 int nFileSize = 500;
 
 // For A and MX records separately
@@ -152,7 +153,7 @@ int ParseArguments(int argc, char *argv[])
     // check count
     if (argc < 2)
     {
-        printf("Usage: mailvalidator [@server] [-a] [-h] [-l] [-flist filename] [-fsize filesize] [-xlist filename] [-d sleep msec.]\n\t[-t socket timeout sec.] [-mx mail servers limit] [-p ptr record] [-s mailfrom] [rcptto]\r\n");
+        printf("Usage: mailvalidator [@server] [-a] [-h] [-l] [-flist filename] [-fsize filesize] [-xlist filename] [-d sleep msec.]\n\t[-t socket timeout sec.] [-mx mail servers limit] [-catchall] [-p ptr record] [-s mailfrom] [rcptto]\r\n");
         printlog(llFatal, "ParseArguments", "1 argument expected, mailvalidator [rcpt to]");
         return -1;
     }
@@ -169,13 +170,17 @@ int ParseArguments(int argc, char *argv[])
         {
             bFileLog = true; 
         }
+        else if (memcmp(argv[i], "-catchall", 10) == 0)
+        {
+            SmtpSessionSet.catch_all_check = 1;
+        }
         else if (memcmp(argv[i], "-d", 3) == 0)
         {
             nSleep = atoi(argv[i] + 3); i++; 
         }
         else if (memcmp(argv[i], "-t", 3) == 0)
         {
-            SmtpAuthSet.sock_async_timeout = atoi(argv[i] + 3); i++;
+            SmtpSessionSet.sock_async_timeout = atoi(argv[i] + 3); i++;
         }
         else if (memcmp(argv[i], "-mx", 4) == 0)
         {
@@ -183,11 +188,11 @@ int ParseArguments(int argc, char *argv[])
         }
 	else if (memcmp(argv[i], "-s", 3) == 0)
         {
-	    strcpy(SmtpAuthSet.mail_from, argv[i] + 3); i++;
+	    strcpy(SmtpSessionSet.mail_from, argv[i] + 3); i++;
 	}
         else if (memcmp(argv[i], "-p", 3) == 0)
         {
-            strcpy(SmtpAuthSet.ptr_domain, argv[i] + 3); i++;
+            strcpy(SmtpSessionSet.ptr_domain, argv[i] + 3); i++;
         }    
         else if (memcmp(argv[i], "-a", 3) == 0)
         {
@@ -215,7 +220,7 @@ int ParseArguments(int argc, char *argv[])
 	    printf("\tEmail(es) for validation can be provided in the form of a single argument or a plain-text file containing list of emails.\r\n");
             printf("\tNameservers from etc/resolv.conf are used or 8.8.8.8 by default.\r\n");
 	    printf("\r\nUsage:\r\n");
-	    printf("\tmailvalidator [@server] [-a] [-h] [-l] [-f filename] [-fsize filesize] [-xlist filename] [-d delay msec.]\n\t[-t socket timeout sec.] [-mx mail servers number] [-p ptr record] [-s mailfrom] [rcptto]\r\n");
+	    printf("\tmailvalidator [@server] [-a] [-h] [-l] [-f filename] [-fsize filesize] [-xlist filename] [-d delay msec.]\n\t[-t socket timeout sec.] [-mx mail servers number] [-catchall] [-p ptr record] [-s mailfrom] [rcptto]\r\n");
 	    printf("\r\nOptions:\r\n");
 	    printf("\t-h\r\n");
 	    printf("\t\tOutput this help screen.\r\n");
@@ -223,6 +228,8 @@ int ParseArguments(int argc, char *argv[])
             printf("\t\tIP address of the name server to query, if not stated and resolve.conf is unusable, then 8.8.8.8 to be used by default.\r\n");	   
             printf("\t-a\r\n");
             printf("\t\tPerform FQDN A record test (please note, FQDN without A record can still have MX records), default OFF.\r\n");
+            printf("\t-catchall\r\n");
+            printf("\t\tPerform the catch-all test, default OFF.\r\n");
 	    printf("\t-d NUM\r\n");
             printf("\t\tDelay in msec. to be set while processing a list of emails, default 100.\r\n");    
             printf("\t-flist filename\r\n");
@@ -232,7 +239,7 @@ int ParseArguments(int argc, char *argv[])
 	    printf("\t-l\r\n");
 	    printf("\t\tEnable logging, default OFF.\r\n");       
             printf("\t-mx NUM\r\n");
-            printf("\t\tMX servers number to be attempted, default 3.\r\n");	    
+            printf("\t\tMX servers number to be attempted, default 1.\r\n");	    
             printf("\t-p ptr record\r\n");
             printf("\t\tPTR record to be used for EHLO command, default educause.edu.\r\n");
 	    printf("\t-s mailfrom\r\n");
@@ -284,17 +291,14 @@ int ParseEmail(char* email)
 
    int nPos = strcspn(email, "@"); 
    nPos++;
-
-   char szDomain[256];   
-   strcpy(szDomain, email+nPos);
-
+   strcpy(SmtpSessionSet.rcpt_domain, email+nPos);
    if (strlen(szXFileName) > 0)
    {
 	char pattern[256];
-        sprintf(pattern, "\n%s\n", szDomain); // exact match
+        sprintf(pattern, "\n%s\n", SmtpSessionSet.rcpt_domain); // exact match
 	if (SearchInFile(szXFileName, pattern))
 	{	
-	    printlog(llWarning, "ParseEmail", "FQDN <%s> is blacklisted, email=%s", szDomain,  email);
+	    printlog(llWarning, "ParseEmail", "FQDN <%s> is blacklisted, email=%s", SmtpSessionSet.rcpt_domain,  email);
             return errDomainBlacklisted;
 	}
    }
@@ -303,23 +307,27 @@ int ParseEmail(char* email)
    char mxIP[16];
    if (bAquery)
    {
-        if (GetHostByName(szDomain, &mxIP[0]) != 0)
+        if (GetHostByName(SmtpSessionSet.rcpt_domain, &mxIP[0]) != 0)
         {	
-             printlog(llWarning, "ParseEmail", "Failed on resolving FQDN, FQDN=%s", szDomain);
+             printlog(llWarning, "ParseEmail", "Failed on resolving FQDN, FQDN=%s", SmtpSessionSet.rcpt_domain);
              return errCantResolve;		
         }
-        printlog(llInfo, "ParseEmail", "FQDN <%s> has IP=%s", szDomain, mxIP);
+        printlog(llInfo, "ParseEmail", "FQDN <%s> has IP=%s", SmtpSessionSet.rcpt_domain, mxIP);
     }
 
    int retCode = 0;
-   ngethostbyname(mxBuf, (unsigned char*)szDomain, szNameServer, T_MX);
+   // TODO
+   // char* tmp = (char *)malloc(strlen(SmtpSessionSet.rcpt_domain));
+   // strcpy(tmp, SmtpSessionSet.rcpt_domain); 
+   ngethostbyname(mxBuf, (unsigned char*)SmtpSessionSet.rcpt_domain, szNameServer, T_MX);
+   sprintf(&SmtpSessionSet.rcpt_domain[strlen(SmtpSessionSet.rcpt_domain) - 1], "%s", "\0");
 
    if (mxBuf.len == 0)
    {
-	printlog(llWarning, "ParseEmail", "Failed on retrieving MX record(s), email=%s, FQDN=%s", email, szDomain);
+	printlog(llWarning, "ParseEmail", "Failed on retrieving MX record(s), email=%s, FQDN=%s", email, SmtpSessionSet.rcpt_domain);
 	retCode = errMXLookup;
    }
-   printlog(llInfo, "ParseEmail", "FQDN <%s> has %d MX record(s), email=%s", szDomain, mxBuf.len, email);
+   printlog(llInfo, "ParseEmail", "FQDN <%s> has %d MX record(s), email=%s", SmtpSessionSet.rcpt_domain, mxBuf.len, email);
 
    int i = 0;
    for (i=0;i<mxBuf.len;i++)
@@ -336,11 +344,11 @@ int ParseEmail(char* email)
 	    retCode = errGetHostByName;
             continue;
         } 
-	printlog(llInfo, "ParseEmail", "email=%s, FQDN=%s MX%d=%s, IP=%s", email, szDomain, i, mxBuf.record[i], mxIP);
+	printlog(llInfo, "ParseEmail", "email=%s, FQDN=%s MX%d=%s, IP=%s", email, SmtpSessionSet.rcpt_domain, i, mxBuf.record[i], mxIP);
 
-	retCode=SmtpCheckRcpt(&SmtpAuthSet, email, mxIP);
+	retCode=SmtpCheckRcpt(&SmtpSessionSet, email, mxIP);
 
- 	bool bCompleted = ((retCode == 250)  || (retCode == 251) || (retCode == 450) || (retCode == 451) ||  (retCode == 550) || (retCode == 553) || (retCode == 5005)) ? true : false;	
+ 	bool bCompleted = ((retCode == 250)  || (retCode == 251) || (retCode == 450) || (retCode == 451) ||  (retCode == 550) || (retCode == 553) || (retCode == 5005) || (retCode == 5007)) ? true : false;	
  	if (bCompleted)
 		break;
    }
@@ -386,6 +394,9 @@ void PrintErrCode(char* rcptto, int errcode)
            break;
 	case errGetHostByName:
 	   strcpy(str, "_ERR: GetHostByName - no A records returned");
+           break;
+        case errCatchAllDetected:
+           strcpy(str, "_ERR: Catch-all server detected");
            break;
         case 252:
            strcpy(str, "_ERR: Cannot VRFY user, but will accept message and attempt delivery");
@@ -459,11 +470,11 @@ int main(int argc, char *argv[])
         initlog((bool*)bFileLog, "main() "_PROGNFO_, argv[0]);
 	printlog(llInfo, "main()", "Initialization ...");
         // log input values
-        printlog(llInfo, "ParseArguments", "program arguments: FileName=%s; MAIL_FROM=%s; RCPT_TO=%s", szFileName, SmtpAuthSet.mail_from, szRcptTo);
+        printlog(llInfo, "ParseArguments", "program arguments: FileName=%s; MAIL_FROM=%s; RCPT_TO=%s", szFileName, SmtpSessionSet.mail_from, szRcptTo);
         // show input values
         // printf("FILENAME: %s\r\n", szFileName);
-	// printf("PTR RECORD: %s\r\n", SmtpAuthSet.ptr_domain);
-        // printf("MAIL FROM: %s\r\n", SmtpAuthSet.mail_from);
+	// printf("PTR RECORD: %s\r\n", SmtpSessionSet.ptr_domain);
+        // printf("MAIL FROM: %s\r\n", SmtpSessionSet.mail_from);
         // printf("RCPT TO: %s\r\n", szRcptTo);
 
         // set signals handler

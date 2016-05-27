@@ -18,12 +18,14 @@ bool bShutdownT = false;
 char szEhloCommand[256];
 char szMailFromCommand[256];
 char szRcptToCommand[256];
+char szCatchAllToCommand[256];
 char const* szQuitCommand = "QUIT\r\n";
 char szRemoteAddress[256];
 int kq_client = -1;
 SOCKET ClientSocket = -1;
 int const MAXBUFSIZE = 4096;
 int SOCK_TIMEOUT = 15;
+unsigned char CATCH_ALL_CHECK = 0;
 char client_send_buf[MAXBUFSIZE];
 int client_send_buf_cnt = 0;
 char client_recv_buf[MAXBUFSIZE];
@@ -187,35 +189,57 @@ void* ThreadSMTPClient(void *arg)
 		        // Start validation
 		        //
 			char* tmp_buf = client_recv_buf + (client_recv_buf_cnt - nbytes);
-			//n_smtpreply = 0; 	
-			n_smtpreply = atoi(tmp_buf); 
+			n_smtpreply = atoi(tmp_buf);
 			switch(n_smtpreply)
     			{
         	  	   case 220:
            		      	PutRequest((char*)szEhloCommand);
-           		      	n_progress |= STATE_EHLOSENT;
+           		      	n_progress = STATE_EHLOSENT;
 				break;
         		   case 250 ... 251:
            		     	if (n_progress == STATE_EHLOSENT)
            			{
                 			PutRequest((char*)szMailFromCommand);
-                			n_progress |= STATE_MAILFROMSENT; 
+                			n_progress = STATE_MAILFROMSENT; 
            			}
            			else
           			if (n_progress == STATE_MAILFROMSENT)
            			{
                 			PutRequest(szRcptToCommand);
-                			n_progress |= STATE_RCPTTOSENT; 
+                			n_progress = STATE_RCPTTOSENT; 
            			}
            			else
            			if (n_progress == STATE_RCPTTOSENT)
 				{
-					PutRequest((char*)szQuitCommand);
-                			n_progress |= STATE_SUCCESSFUL;
-					bShutdownT = true;
+					if (CATCH_ALL_CHECK)
+					{
+				 	   PutRequest(szCatchAllToCommand);
+				    	   n_progress = STATE_CATCHALLSENT;
+					}
+					else
+					{
+					   PutRequest((char*)szQuitCommand);
+                			   n_progress = STATE_SUCCESSFUL;
+					   bShutdownT = true;
+					}
+                                }
+				else // means we did the catch all test and the result is positive
+				if (n_progress == STATE_CATCHALLSENT)
+				{ 	
+				   n_smtpreply = 5007;
+				   PutRequest((char*)szQuitCommand);
+                                   n_progress = STATE_SUCCESSFUL;
+                                   bShutdownT = true;
 				}
-           			break;
-			    default:
+                                break;	
+  		   	 default:
+				if (n_progress == STATE_CATCHALLSENT)
+				{
+			   	   // set 250 because we got here due the the catch all negative result	
+				   n_smtpreply = 250; 
+				   n_progress = STATE_SUCCESSFUL; 
+				}
+
                                 bShutdownT = true;
     			 }
 		     }
@@ -249,15 +273,16 @@ void* ThreadSMTPClient(void *arg)
     pthread_exit(NULL);
 }
 
-int SmtpCheckRcpt(SMTP_AUTH_SET* smtp_auth_set, char* rcptto, char* ip) 
+int SmtpCheckRcpt(SMTP_SESSION_SET* smtp_session_set, char* rcptto, char* ip) 
 {
     // formt SMTP commands 
-    sprintf(szEhloCommand, "EHLO %s\r\n", smtp_auth_set->ptr_domain);
-    sprintf(szMailFromCommand, "MAIL FROM:<%s>\r\n", smtp_auth_set->mail_from);
+    sprintf(szEhloCommand, "EHLO %s\r\n", smtp_session_set->ptr_domain);
+    sprintf(szMailFromCommand, "MAIL FROM:<%s>\r\n", smtp_session_set->mail_from);
     sprintf(szRcptToCommand, "RCPT TO:<%s>\r\n", rcptto);
+    sprintf(szCatchAllToCommand, "RCPT TO:<%s@%s>\r\n", CATCH_ALL_ADDRESS, smtp_session_set->rcpt_domain);
     sprintf(szRemoteAddress, "%s", ip);
-    SOCK_TIMEOUT = smtp_auth_set->sock_async_timeout;
-
+    CATCH_ALL_CHECK = smtp_session_set->catch_all_check;
+    SOCK_TIMEOUT = smtp_session_set->sock_async_timeout;
     // start thread
     bShutdownT = bShutdown;
 
