@@ -381,7 +381,7 @@ void PrintErrCode(char* rcptto, int errcode)
  	   strcpy(str, "_OK: Valid"); 
 	   break;
 	case errMXLimitExceeded:
-	   strcpy(str, "_ERR: MX servers limit excedeed");
+	   strcpy(str, "_ERR: MX servers limit exceeded");
            break;
 	case errTerminated:
            strcpy(str, "_ERR: Program has been terminated");
