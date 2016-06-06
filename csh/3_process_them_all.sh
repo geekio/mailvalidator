@@ -1,3 +1,4 @@
+root@web:/home/mantas/www/wp/wp-content/themes/custom # cat /usr/local/mailvalidator/csh/3_process_them_all.sh
 #!/bin/sh
 CONFIG_PATH=/usr/local/mailvalidator/csh/mailvalidator.conf
 BUF_DIR=$(awk -F "=" '/^buf_dir/{print $2}' $CONFIG_PATH | tr -d ' ')
@@ -22,7 +23,7 @@ do
     if [ -f "$OUTPUT_DIR/$FILENAME.output" ]; then
           continue
     else
-          $MAILVALIDATOR_PATH -l -t 10 -mx 2 -xlist $BLACKLIST_PATH -flist $entry > $OUTPUT_DIR/$FILENAME.output &
+          $MAILVALIDATOR_PATH -l -p mail.iomatters.com -s admin@iomatters.com -catchall -t 10 -mx 1 -xlist $BLACKLIST_PATH -flist $entry > $OUTPUT_DIR/$FILENAME.output &
     fi
   done
   I=`expr $I + 1`
