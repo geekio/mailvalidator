@@ -227,9 +227,9 @@ int ParseArguments(int argc, char *argv[])
             printf("\t@server\r\n");
             printf("\t\tIP address of the name server to query, if not stated and resolve.conf is unusable, then 8.8.8.8 to be used by default.\r\n");	   
             printf("\t-a\r\n");
-            printf("\t\tPerform FQDN A record test (please note, FQDN without A record can still have MX records), default OFF.\r\n");
+            printf("\t\tRun FQDN A record test (please note, FQDN without A record can still have MX records), default OFF.\r\n");
             printf("\t-catchall\r\n");
-            printf("\t\tPerform the catch-all test, default OFF.\r\n");
+            printf("\t\tRun the catch-all test, default OFF.\r\n");
 	    printf("\t-d NUM\r\n");
             printf("\t\tDelay in msec. to be set while processing a list of emails, default 100.\r\n");    
             printf("\t-flist filename\r\n");
